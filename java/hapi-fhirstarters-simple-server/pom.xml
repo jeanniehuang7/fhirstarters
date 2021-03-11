@@ -13,6 +13,38 @@
    </properties>
 
    <dependencies>
+		<!-- This dependency is added for Firebase usage -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>7.1.0</version>
+		</dependency>
+
+		<!-- Attempting to fix errors (this doesn't seem to do anything) -->
+		<!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-firestore -->
+		<!-- <dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-firestore</artifactId>
+			<version>2.2.4</version>
+		</dependency> -->
+
+		<!-- Not found -->
+		<!-- https://mvnrepository.com/artifact/com.google.firebase/firebase-firestore -->
+		<!-- <dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-firestore</artifactId>
+			<version>18.1.0</version>
+		</dependency> -->
+
+		<!--Not found-->
+		<!-- https://mvnrepository.com/artifact/com.google.firebase/firebase-core -->
+		<!-- <dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-core</artifactId>
+			<version>18.0.2</version>
+		</dependency> -->
+
+
 
 		<!-- This dependency includes the core HAPI-FHIR classes -->
 		<dependency>
