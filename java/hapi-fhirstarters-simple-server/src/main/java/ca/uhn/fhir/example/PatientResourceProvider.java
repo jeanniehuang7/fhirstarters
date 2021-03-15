@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.io.*;
 import java.time.LocalDate;
 
-public class Example01_PatientResourceProvider implements IResourceProvider {
+public class PatientResourceProvider implements IResourceProvider {
 
    private Map<String, Patient> myPatients = new HashMap<String, Patient>();
    private Firestore db;
@@ -42,7 +42,7 @@ public class Example01_PatientResourceProvider implements IResourceProvider {
     at the time we want to read it. 
     */
 
-   public Example01_PatientResourceProvider(Firestore _db) {
+   public PatientResourceProvider(Firestore _db) {
       db = _db;
       retrieveUsers(db);
    }
@@ -53,16 +53,13 @@ public class Example01_PatientResourceProvider implements IResourceProvider {
    }
 
    /**
-    * Simple implementation of the "read" method
-    */
-
+    * Simple implementation of the "read" method 
+    * Get data from Firebase by calling http://localhost:8080/Patient/g* where * is a number
+   */
    @Read()
    public Patient read(@IdParam IdType theId) {
-      // Replace below with getting data from Firebase 
-      // and then adding all the appropriate information
-
       // for testing/development purposes
-      // retrieve dummy user by asking for http://localhost:8080/Patient/1 
+      // retrieve dummy user by sending a get request to http://localhost:8080/Patient/1 
       setDummyUser(db, theId);
       searchForPatient(db, theId); 
 
@@ -75,18 +72,8 @@ public class Example01_PatientResourceProvider implements IResourceProvider {
    }
 
 
-
-   // the passed in theId must be server ID of 1 
-   private void setDummyUser(Firestore db, @IdParam IdType theId) {
-      Patient pat1 = new Patient();
-      pat1.setId("1"); // i think this is a logical identifier for the server?
-      pat1.addIdentifier().setSystem("https://warriorwellness.me").setValue("some dummy business ID like g_999");
-      pat1.addName().setFamily("Bruin").addGiven("Jane").addGiven("C");
-      myPatients.put("1", pat1);
-   }
-
-   // To do: implement a "search for document" given id
-   // for now, assume that the server id matches the business id? 
+   // Search firebase documents for a user id like g1, g2, g3 ... 
+   // Format it as a patient resource and set it in our Patient hashmap
 
    private void searchForPatient(Firestore db, @IdParam IdType theId) {
       System.out.printf("Searching for patient with id %s \n", theId.getIdPart());
@@ -149,6 +136,15 @@ public class Example01_PatientResourceProvider implements IResourceProvider {
       pat1.addIdentifier().setSystem("https://warriorwellness.me").setValue(theId.getIdPart());
       //pat1.addName().setFamily("Bruin").addGiven("Jane").addGiven("C");
       myPatients.put(theId.getIdPart(), pat1);
+   }
+
+   // the passed in theId must be server ID of 1 
+   private void setDummyUser(Firestore db, @IdParam IdType theId) {
+      Patient pat1 = new Patient();
+      pat1.setId("1"); // i think this is a logical identifier for the server?
+      pat1.addIdentifier().setSystem("https://warriorwellness.me").setValue("some dummy business ID like g_999");
+      pat1.addName().setFamily("Bruin").addGiven("Jane").addGiven("C");
+      myPatients.put("1", pat1);
    }
 
    // test that you've connected to Firebase by retrieving all user metric documents in Garmin. 

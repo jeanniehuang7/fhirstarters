@@ -27,7 +27,7 @@ import java.io.*;
 
 
 @WebServlet("/*")
-public class Example02_SimpleRestfulServer extends RestfulServer {
+public class SimpleRestfulServer extends RestfulServer {
 
 	@Override
 	protected void initialize() throws ServletException {
@@ -49,8 +49,10 @@ public class Example02_SimpleRestfulServer extends RestfulServer {
 			Firestore db = FirestoreClient.getFirestore();
 
 			// Register resource providers
+			
 			// Calls the constructor on the resource provider class? 
-			registerProvider(new Example01_PatientResourceProvider(db));
+			registerProvider(new PatientResourceProvider(db));
+			registerProvider(new ObservationResourceProvider(db));
 			
 			// Format the responses in nice HTML
 			registerInterceptor(new ResponseHighlighterInterceptor());

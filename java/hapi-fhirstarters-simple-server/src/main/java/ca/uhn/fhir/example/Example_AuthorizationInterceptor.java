@@ -9,7 +9,7 @@ import org.hl7.fhir.r4.model.Observation;
 
 import java.util.List;
 
-public class Example03_AuthorizationInterceptor extends AuthorizationInterceptor {
+public class Example_AuthorizationInterceptor extends AuthorizationInterceptor {
    @Override
    public List<IAuthRule> buildRuleList(RequestDetails theRequestDetails) {
 
