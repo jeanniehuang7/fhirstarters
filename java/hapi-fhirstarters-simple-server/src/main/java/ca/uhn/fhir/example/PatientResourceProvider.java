@@ -1,4 +1,5 @@
 package ca.uhn.fhir.example;
+import ca.uhn.fhir.example.Helper;
 
 import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Read;
@@ -44,7 +45,7 @@ public class PatientResourceProvider implements IResourceProvider {
 
    public PatientResourceProvider(Firestore _db) {
       db = _db;
-      retrieveUsers(db);
+      Helper.retrieveUsers(db);
    }
 
    @Override
@@ -147,28 +148,7 @@ public class PatientResourceProvider implements IResourceProvider {
       myPatients.put("1", pat1);
    }
 
-   // test that you've connected to Firebase by retrieving all user metric documents in Garmin. 
-   private void retrieveUsers(Firestore db)
-	{
-		// asynchronously retrieve all users
-		ApiFuture<QuerySnapshot> query = db.collection("g_userMetric").get();
-		// ...
-		// query.get() blocks on response
-		try {
-			QuerySnapshot querySnapshot = query.get();
-				List<QueryDocumentSnapshot> documents = querySnapshot.getDocuments();
-				for (QueryDocumentSnapshot document : documents) {
-					System.out.println("User: " + document.getId());
-					System.out.println("Summary ID: " + document.getString("summaryId"));
-					System.out.println("User ID: " + document.getString("user_id"));
-				}	
-		}
-		catch (Exception e){
-			e.printStackTrace();
-
-		}
-	    
-	}
+   
 
 
 }

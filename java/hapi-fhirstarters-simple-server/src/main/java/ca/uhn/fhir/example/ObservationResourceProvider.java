@@ -1,5 +1,9 @@
+// access other classes within this folder
 package ca.uhn.fhir.example;
+import ca.uhn.fhir.example.Helper;
+import ca.uhn.fhir.example.RespRate;
 
+// general fhir things
 import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Read;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -8,6 +12,19 @@ import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 
+//added to try to do resp rate extension 
+import ca.uhn.fhir.model.api.annotation.Child;
+import ca.uhn.fhir.model.api.annotation.Description;
+import ca.uhn.fhir.model.api.annotation.Extension;
+import ca.uhn.fhir.model.api.annotation.ResourceDef;
+import ca.uhn.fhir.util.ElementUtil;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.StringType;
+import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.context.FhirContext;
+
+// added to access firebase
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
 
@@ -23,6 +40,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.CollectionReference;
 
+// access java common operations
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +53,17 @@ public class ObservationResourceProvider implements IResourceProvider {
    private Map<String, Observation> myObservations = new HashMap<String, Observation>();
    private Firestore db;
 
-   /**
-    * Constructor
-    I don't think I want to read all of the Firebase data in at the time of
-    class construction. So I will go and fetch data and format as FHIR resource
-    at the time we want to read it. 
-    */
-
    public ObservationResourceProvider(Firestore _db) {
       db = _db;
+      Helper.retrieveUsers(db);
+
+      RespRate patient = new RespRate();
+      patient.setPetName(new StringType("Fido"));
+      patient.getImportantDates().add(new DateTimeType("2010-01-02"));
+      patient.getImportantDates().add(new DateTimeType("2014-01-26T11:11:11"));
+
+      myObservations.put("1", patient);
+
    }
 
    @Override
@@ -59,7 +79,8 @@ public class ObservationResourceProvider implements IResourceProvider {
    public Observation read(@IdParam IdType theId) {
       searchForObservation(db, theId);
 
-      Observation retVal = myObservations.get(theId.getIdPart());
+      //Observation retVal = myObservations.get(theId.getIdPart());
+      Observation retVal = myObservations.get("1");
       
       if (retVal == null) {
          throw new ResourceNotFoundException(theId);
@@ -67,9 +88,15 @@ public class ObservationResourceProvider implements IResourceProvider {
       return retVal;
    }
 
+   // to do: 
+   // format resp rate.java according to the structure definition
+   // try with hapi.fhi.org to see what ID to call to return a respiratory rate json
+   // attempt bundling
+
    private void searchForObservation(Firestore db, @IdParam IdType theId) {
+      System.out.printf("Searching for observation with id %s \n", theId.getIdPart());
       try {
-         ApiFuture<QuerySnapshot> future = db.collection("g_userMetric").whereEqualTo("user_id", theId.getIdPart()).get();
+         ApiFuture<QuerySnapshot> future = db.collection("g_respiration").whereEqualTo("summaryId", theId.getIdPart()).get();
 			List<QueryDocumentSnapshot> documents = future.get().getDocuments();
          System.out.println("Document size: ");
          System.out.println(documents.size());
@@ -77,7 +104,6 @@ public class ObservationResourceProvider implements IResourceProvider {
          if (documents.size() < 1) {
             return;
          }
-
          setObservationResource(theId);
 		}
 
@@ -88,6 +114,6 @@ public class ObservationResourceProvider implements IResourceProvider {
    }
 
    private void setObservationResource(@IdParam IdType theId) {
-
+      
    }
 }
