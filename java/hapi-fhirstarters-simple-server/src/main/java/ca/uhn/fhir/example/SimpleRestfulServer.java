@@ -61,7 +61,7 @@ public class SimpleRestfulServer extends RestfulServer {
 			// Register resource providers
 			
 			registerProvider(new PatientResourceProvider(db));
-			registerProvider(new RespRateResourceProvider(db));
+			registerProvider(new ObservationResourceProvider(db));
 			
 			// Format the responses in nice HTML
 			// Provides the autmomatically generated metadata/capability statement as well?

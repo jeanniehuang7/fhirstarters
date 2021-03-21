@@ -9,8 +9,15 @@ import ca.uhn.fhir.rest.annotation.Read;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import org.hl7.fhir.r4.model.IdType;
-import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+
+// access java common operations
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.io.*;
+import java.time.LocalDate;
 
 //added to try to do resp rate extension 
 import ca.uhn.fhir.model.api.annotation.Child;
@@ -19,10 +26,14 @@ import ca.uhn.fhir.model.api.annotation.Extension;
 import ca.uhn.fhir.model.api.annotation.ResourceDef;
 import ca.uhn.fhir.util.ElementUtil;
 import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.StringType;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.context.FhirContext;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Quantity;
 
 // added to access firebase
 import com.google.auth.oauth2.GoogleCredentials;
@@ -40,13 +51,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.CollectionReference;
 
-// access java common operations
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.io.*;
-import java.time.LocalDate;
+
 
 public class ObservationResourceProvider implements IResourceProvider {
 
@@ -56,14 +61,7 @@ public class ObservationResourceProvider implements IResourceProvider {
    public ObservationResourceProvider(Firestore _db) {
       db = _db;
       Helper.retrieveUsers(db);
-
-      RespRate patient = new RespRate();
-      patient.setPetName(new StringType("Fido"));
-      patient.getImportantDates().add(new DateTimeType("2010-01-02"));
-      patient.getImportantDates().add(new DateTimeType("2014-01-26T11:11:11"));
-
-      myObservations.put("1", patient);
-
+      setDummyResp();
    }
 
    @Override
@@ -77,24 +75,49 @@ public class ObservationResourceProvider implements IResourceProvider {
 
    @Read()
    public Observation read(@IdParam IdType theId) {
-      searchForObservation(db, theId);
+      searchForRespRate(db, theId);
 
-      //Observation retVal = myObservations.get(theId.getIdPart());
-      Observation retVal = myObservations.get("1");
-      
+      Observation retVal = myObservations.get(theId.getIdPart());
+
       if (retVal == null) {
          throw new ResourceNotFoundException(theId);
       }
       return retVal;
    }
 
-   // to do: 
-   // format resp rate.java according to the structure definition
-   // try with hapi.fhi.org to see what ID to call to return a respiratory rate json
-   // attempt bundling
 
-   private void searchForObservation(Firestore db, @IdParam IdType theId) {
-      System.out.printf("Searching for observation with id %s \n", theId.getIdPart());
+   private void setDummyRespWithExtension() {
+      RespRate theResp = new RespRate();
+      theResp.setPetName(new StringType("Fido"));
+      theResp.getImportantDates().add(new DateTimeType("2010-01-02"));
+      theResp.getImportantDates().add(new DateTimeType("2014-01-26T11:11:11"));
+      theResp.setId("2");
+      myObservations.put("2", theResp);
+   }
+
+   private void setDummyResp() {
+      RespRate myResp = new RespRate();
+      Reference patientReference = new Reference("Patient/g2");
+      myResp.setSubject(patientReference);
+      myResp.setId("1");
+      Coding myCoding = new Coding("http://terminology.hl7.org/CodeSystem/observation-category", "vital-signs", "Vital Signs");
+      CodeableConcept myCodeConcept = new CodeableConcept(myCoding);
+      myResp.addCategory(myCodeConcept);
+      myResp.setEffective(new DateTimeType("1996-02-02"));
+      myResp.setValue(new Quantity(null,26,"http://unitsofmeasure.org","/min","breaths/min"));
+      myResp.setCode(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
+    
+      // pathToStaticRespJSON = "/Users/jeanniehuang/Developer/garmin/Resources";
+      // // Instantiate a new parser
+      // IParser parser = ctx.newJsonParser();
+      // // Parse it
+      // RespRate parsed = parser.parseResource(RespRate.class, input);
+
+      myObservations.put("1", myResp);
+   }
+
+   private void searchForRespRate(Firestore db, @IdParam IdType theId) {
+      System.out.printf("Searching for RespRate with id %s \n", theId.getIdPart());
       try {
          ApiFuture<QuerySnapshot> future = db.collection("g_respiration").whereEqualTo("summaryId", theId.getIdPart()).get();
 			List<QueryDocumentSnapshot> documents = future.get().getDocuments();
@@ -104,7 +127,7 @@ public class ObservationResourceProvider implements IResourceProvider {
          if (documents.size() < 1) {
             return;
          }
-         setObservationResource(theId);
+         setRespRateResource(theId);
 		}
 
       catch (Exception e) {
@@ -113,7 +136,7 @@ public class ObservationResourceProvider implements IResourceProvider {
       return;
    }
 
-   private void setObservationResource(@IdParam IdType theId) {
+   private void setRespRateResource(@IdParam IdType theId) {
       
    }
 }
