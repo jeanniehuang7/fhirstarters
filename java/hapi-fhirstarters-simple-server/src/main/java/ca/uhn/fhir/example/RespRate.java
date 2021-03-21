@@ -37,6 +37,7 @@ public class RespRate extends Observation {
    @Extension(url="http://example.com/dontuse#petname", definedLocally=false, isModifier=false)
    @Description(shortDefinition="The name of the Observation's favourite pet")
    private StringType myPetName;
+   //private valueQuantity myRespRate;
 
    /**
     * The second example extension uses a List type to provide
