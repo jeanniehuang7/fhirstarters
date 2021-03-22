@@ -64,7 +64,7 @@ public class Helper {
     // give a timezone reference for formatting 
     sdf.setTimeZone(java.util.TimeZone.getTimeZone("GMT-7")); 
     String formattedDate = sdf.format(date);
-    System.out.println(formattedDate);
+    System.out.println("Effective dateTime: " + formattedDate);
     return formattedDate;
 
    }

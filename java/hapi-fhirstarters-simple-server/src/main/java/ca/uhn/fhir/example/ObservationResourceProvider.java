@@ -22,7 +22,7 @@ import java.util.concurrent.ExecutionException;
 import java.io.*;
 import java.time.LocalDate;
 
-//added to try to do resp rate extension 
+//added to build different vitals profiles
 import ca.uhn.fhir.model.api.annotation.Child;
 import ca.uhn.fhir.model.api.annotation.Description;
 import ca.uhn.fhir.model.api.annotation.Extension;
@@ -38,6 +38,8 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
+import org.hl7.fhir.r4.model.Observation.ObservationStatus;
+import org.hl7.fhir.r4.model.Meta;
 
 // added to access firebase
 import com.google.auth.oauth2.GoogleCredentials;
@@ -55,8 +57,6 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.CollectionReference;
 
-
-
 public class ObservationResourceProvider implements IResourceProvider {
 
    private Map<String, Observation> myObservations = new HashMap<String, Observation>();
@@ -64,7 +64,6 @@ public class ObservationResourceProvider implements IResourceProvider {
 
    public ObservationResourceProvider(Firestore _db) {
       db = _db;
-      Helper.retrieveUsers(db);
       setDummyRespWithExtension();  
    }
 
@@ -79,7 +78,7 @@ public class ObservationResourceProvider implements IResourceProvider {
 
    @Read()
    public Observation read(@IdParam IdType theId) {
-      searchForDocument(db, theId, "g_respiration");
+      searchForDocument(db, theId);
       Observation retVal = myObservations.get(theId.getIdPart());
 
       if (retVal == null) {
@@ -87,7 +86,6 @@ public class ObservationResourceProvider implements IResourceProvider {
       }
       return retVal;
    }
-
 
    private void setDummyRespWithExtension() {
       RespRate theResp = new RespRate();
@@ -117,60 +115,127 @@ public class ObservationResourceProvider implements IResourceProvider {
    private void setRespRateResource(@IdParam IdType theId, List<QueryDocumentSnapshot> documents) {
       QueryDocumentSnapshot document = documents.get(0);
       System.out.println("Document data: " + document.getData());
-      String userId = document.getString("user_id");
+      Observation myObs = new Observation();
+
+      Meta myMeta = new Meta();
+      myMeta.addProfile("http://hl7.org/fhir/StructureDefinition/resprate");
+      CodeableConcept myCode = new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate"));
+
       String startTime = document.get("startTimeInSeconds").toString();
       String localOffset = document.get("startTimeOffsetInSeconds").toString();
-      
       HashMap <String, Double> measurements = (HashMap)document.get("timeOffsetEpochToBreaths");
       
       // existing issue: measurements isn't guaranteed to be in order, so this fetches a random entry
       Map.Entry<String,Double> entry = measurements.entrySet().iterator().next();
-      String firstKey = entry.getKey();
-      Double firstValue = entry.getValue();
-      System.out.println("Time offset: " + firstKey);
-      System.out.println("Resp value: " + firstValue);
+      String key = entry.getKey();
+      Double value = entry.getValue();
+      System.out.println("Time offset: " + key);
+      System.out.println("Resp value: " + value);
 
-      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(firstKey);
-     
-      RespRate myResp = new RespRate();
-      Reference patientReference = new Reference("Patient/" + userId);
-      myResp.setSubject(patientReference);
-      myResp.setId(theId.getIdPart());
-      Coding myCoding = new Coding("http://terminology.hl7.org/CodeSystem/observation-category", "vital-signs", "Vital Signs");
-      CodeableConcept myCodeConcept = new CodeableConcept(myCoding);
-      myResp.addCategory(myCodeConcept);
-      myResp.setEffective(new DateTimeType(Helper.formatDate(unixTimeStamp)));
+      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(key);
+      DateTimeType myEffectiveDateTime = new DateTimeType(Helper.formatDate(unixTimeStamp));
+      Quantity myQuantity = new Quantity(null,value,"http://unitsofmeasure.org","/min","breaths/min");
+   
+      // // It is possible to have a list of component observations; unforunately they all correspond to the one effective time. 
+      // // so we need an alternate method for recording time series data.
+      // ObservationComponentComponent obs1 = new ObservationComponentComponent​(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
+      // List <ObservationComponentComponent> myList = new ArrayList<ObservationComponentComponent>();
+      // myList.add(obs1);
+      // obs1.setValue(myQuantity);
+      // myResp.setComponent(myList);
 
-      ObservationComponentComponent obs1 = new ObservationComponentComponent​(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
-      obs1.setValue(new Quantity(null,firstValue,"http://unitsofmeasure.org","/min","breaths/min"));
-
-      // although we can have a list of component observations, unforunately they all correspond to the same time.
-      // so we need an alternate method for recording time series data.
-      List <ObservationComponentComponent> myList = new ArrayList<ObservationComponentComponent>();
-      myList.add(obs1);
-      myResp.setComponent(myList);
-
-      myObservations.put(theId.getIdPart(), myResp);
+      myObs = setCommonVitalsFields(myObs, document, theId, myEffectiveDateTime, myQuantity, myMeta, myCode);
+      myObservations.put(theId.getIdPart(), myObs);
    }
 
-   //tbd: search firebase for all documents in all collections 
-   private void searchForDocument(Firestore db, @IdParam IdType theId, String collName) {
-      System.out.printf("Searching for Observation with id %s \n", theId.getIdPart());
+   private void setPulseOxResource(@IdParam IdType theId, List<QueryDocumentSnapshot> documents) {
+      QueryDocumentSnapshot document = documents.get(0);
+      System.out.println("Document data: " + document.getData());
+
+      Observation myObs = new Observation();
+
+      Meta myMeta = new Meta();
+      myMeta.addProfile("http://hl7.org/fhir/StructureDefinition/oxygensat");
+      CodeableConcept myCode = new CodeableConcept(new Coding("http://loinc.org","2708-6","Oxygen saturation"));
+      HashMap <String, Long> measurements = (HashMap)document.get("timeOffsetSpo2Values");
+
+      if (measurements == null) {
+         myObservations.put(theId.getIdPart(), myObs);
+         return;
+      }
+
+      String startTime = document.get("startTimeInSeconds").toString();
+      String localOffset = document.get("startTimeOffsetInSeconds").toString();
+
+      // existing issue: measurements isn't guaranteed to be in order, so this fetches a random entry
+      Map.Entry<String,Long> entry = measurements.entrySet().iterator().next();
+
+      String key = entry.getKey();
+      Long value = entry.getValue();
+      System.out.println("Time offset: " + key);
+      System.out.println("SpO2 value: " + value);
+
+      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(key);
+
+      DateTimeType myEffectiveDateTime = new DateTimeType(Helper.formatDate(unixTimeStamp));
+      Quantity myQuantity = new Quantity(null,value,"http://unitsofmeasure.org","%","%");
+
+      myObs = setCommonVitalsFields(myObs, document, theId, myEffectiveDateTime, myQuantity, myMeta, myCode);
+      myObservations.put(theId.getIdPart(), myObs);
+   }
+
+   private Observation setCommonVitalsFields(Observation myObs, QueryDocumentSnapshot document, 
+      @IdParam IdType theId, DateTimeType myEffectiveDateTime, Quantity myQuantity,
+      Meta myMeta, CodeableConcept myCode) {
+
+      myObs.setSubject(new Reference("Patient/" + document.getString("user_id")));
+      myObs.setId(theId.getIdPart());
+      myObs.setStatus(ObservationStatus.FINAL);
+      Coding myCategoryCoding = new Coding("http://terminology.hl7.org/CodeSystem/observation-category", "vital-signs", "Vital Signs");
+      myObs.addCategory(new CodeableConcept(myCategoryCoding));
+      myObs.setMeta(myMeta);
+      myObs.setCode(myCode);
+      myObs.setEffective(myEffectiveDateTime);
+      myObs.setValue(myQuantity);  
+      return myObs;
+   }
+
+   private void searchForDocument(Firestore db, @IdParam IdType theId) {
+      System.out.printf("=================================\nSearching for Observation with id %s \n", theId.getIdPart());
+      String[] theIdParts = theId.getIdPart().split(":");
+
+      if (theIdParts.length != 2) {
+         System.out.println("The input ID should be the form collectionName:summaryId");
+         return;
+      }
+
+      String collName = theIdParts[0];
+      String theSummaryId = theIdParts[1];
+
       try {
-         ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theId.getIdPart()).get();
-			List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+         ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theSummaryId).get();
+         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
          System.out.println("Number of matching documents: " + documents.size());
-         //System.out.println(documents.size());
          
-         if (documents.size() < 1) {
+         if (documents.size() >= 1) {
+            switch (collName) {
+               case "g_respiration": 
+                  setRespRateResource(theId, documents);
+                  break;
+               case "g_pulseOx":
+                  setPulseOxResource(theId, documents);
+                  break;
+            }
+            
             return;
          }
-         setRespRateResource(theId, documents);
-		}
+         
+      }
 
       catch (Exception e) {
          e.printStackTrace();
-      }      
+      }     
+
       return;
    }
 
