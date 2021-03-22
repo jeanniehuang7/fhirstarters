@@ -25,6 +25,12 @@ import java.text.SimpleDateFormat;
 import java.util.concurrent.ExecutionException;
 import java.io.*;
 import java.time.LocalDate;
+import java.util.Collections;  
+import java.util.Comparator;    
+import java.util.LinkedHashMap;  
+import java.util.LinkedList;  
+import java.util.List;  
+import java.util.Map.Entry;  
 
 
 // A class of helper methods to be used by resource providers 
@@ -68,4 +74,54 @@ public class Helper {
     return formattedDate;
 
    }
+
+   public static HashMap<String, Long> sortMapByKeyStringToLong(Map<String, Long> myMap)   {  
+    //convert HashMap into List   
+    List<Entry<String, Long>> list = new LinkedList<Entry<String, Long>>(myMap.entrySet());  
+    //sorting the list elements  
+    Collections.sort(list, new Comparator<Entry<String, Long>>()   {  
+       public int compare(Entry<String, Long> o1, Entry<String, Long> o2)   {  
+          //sort ascending, compare two object and return value
+          Long val1 = Long.parseLong(o1.getKey());
+          Long val2 = Long.parseLong(o2.getKey());
+          if (val2 > val1) {
+             return -1;
+          } else if (val1 > val2){
+             return 1;
+          }  else {
+             return 0;
+          }
+       }  
+    });
+    HashMap<String, Long> sortedMap = new LinkedHashMap<String, Long>();  
+    for (Entry<String, Long> entry : list)   {  
+       sortedMap.put(entry.getKey(), entry.getValue());  
+    }
+    return sortedMap;  
+}
+
+public static HashMap<String, Double> sortMapByKeyStringToDouble(Map<String, Double> myMap)   {  
+    //convert HashMap into List   
+    List<Entry<String, Double>> list = new LinkedList<Entry<String, Double>>(myMap.entrySet());  
+    //sorting the list elements  
+    Collections.sort(list, new Comparator<Entry<String, Double>>()   {  
+       public int compare(Entry<String, Double> o1, Entry<String, Double> o2)   {  
+          //sort ascending, compare two object and return value
+          Long val1 = Long.parseLong(o1.getKey());
+          Long val2 = Long.parseLong(o2.getKey());
+          if (val2 > val1) {
+             return -1;
+          } else if (val1 > val2){
+             return 1;
+          }  else {
+             return 0;
+          }
+       }  
+    });
+    HashMap<String, Double> sortedMap = new LinkedHashMap<String, Double>();  
+    for (Entry<String, Double> entry : list)   {  
+       sortedMap.put(entry.getKey(), entry.getValue());  
+    }
+    return sortedMap;  
+}
 }
