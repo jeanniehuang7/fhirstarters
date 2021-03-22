@@ -168,8 +168,6 @@ public class ObservationResourceProvider implements IResourceProvider {
       myObservations.put(theId.getIdPart(), myObs);
    }
 
-   
-
    private void setPulseOxResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
       Observation myObs = new Observation();
 
@@ -238,7 +236,7 @@ public class ObservationResourceProvider implements IResourceProvider {
       Observation myObs = new Observation();
 
       CodeableConcept myCode = new CodeableConcept(new Coding("https://connect.garmin.com/","stress-code","Stress Summaries"));
-      HashMap <String, Long> measurements = (HashMap)document.get("timeOffsetSpo2Values");
+      HashMap <String, Long> measurements = (HashMap)document.get("timeOffsetStressLevelValues");
 
       if (measurements == null) {
          myObservations.put(theId.getIdPart(), myObs);
@@ -248,32 +246,41 @@ public class ObservationResourceProvider implements IResourceProvider {
       String startTime = document.get("startTimeInSeconds").toString();
       String localOffset = document.get("startTimeOffsetInSeconds").toString();
 
-      // existing issue: measurements isn't guaranteed to be in order, so this fetches a random entry
-      Map.Entry<String,Long> entry = measurements.entrySet().iterator().next();
+      Double secondsBetweenMeasurements = 180.0;
+      Double milliSecondsBetweenMeasurements = secondsBetweenMeasurements*1000;
+      SampledData mySampledData = new SampledData​(new Quantity(0.0), new DecimalType(milliSecondsBetweenMeasurements), new PositiveIntType(1));
+      
+      // put measurements in order and grab all the values in order.
+      HashMap <String, Long> sortedMeasurements = Helper.sortMapByKeyStringToLong(measurements);
+      
+      String timeSeriesData = "";
+      int counter = 0;
+      String firstKey = "";
+      for (Entry<String, Long> entry : sortedMeasurements.entrySet())   {
+         if (counter == 0) {
+            firstKey = entry.getKey();
+         }  
+         timeSeriesData+=entry.getValue();
+         timeSeriesData += " ";
+         System.out.println(entry.getKey() +"\t"+entry.getValue());  
+         counter++;
+      
+      }
+      // remove the last space
+      timeSeriesData = timeSeriesData.substring(0, timeSeriesData.length() - 1);
 
-      String key = entry.getKey();
-      Long value = entry.getValue();
-      System.out.println("Time offset: " + key);
-      System.out.println("SpO2 value: " + value);
+      mySampledData.setData(timeSeriesData);
 
-      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(key);
+      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(firstKey);
 
       DateTimeType myEffectiveDateTime = new DateTimeType(Helper.formatDate(unixTimeStamp));
-      Quantity myQuantity = new Quantity(null,value,"http://unitsofmeasure.org","%","%");
-
-      // // It is possible to have a list of component observations; unforunately they all correspond to the one effective time. 
-      // // so we need an alternate method for recording time series data.
-      // ObservationComponentComponent obs1 = new ObservationComponentComponent​(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
-      // List <ObservationComponentComponent> myList = new ArrayList<ObservationComponentComponent>();
-      // myList.add(obs1);
-      // obs1.setValue(myQuantity);
-      // myResp.setComponent(myList);
+      
       Meta myMeta = null;
-
-      myObs = setCommonVitalsFields(myObs, document, theId, myEffectiveDateTime, myQuantity, myMeta, myCode);
+      myObs = setCommonVitalsFields(myObs, document, theId, myEffectiveDateTime, mySampledData, myMeta, myCode);
       myObservations.put(theId.getIdPart(), myObs);
 
    }
+
    private Observation setCommonVitalsFields(Observation myObs, QueryDocumentSnapshot document, 
       @IdParam IdType theId, DateTimeType myEffectiveDateTime, Type myValue,
       Meta myMeta, CodeableConcept myCode) {
