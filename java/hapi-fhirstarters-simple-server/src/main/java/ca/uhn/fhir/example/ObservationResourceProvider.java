@@ -15,6 +15,9 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 import java.util.concurrent.ExecutionException;
 import java.io.*;
 import java.time.LocalDate;
@@ -34,6 +37,7 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Quantity;
+import org.hl7.fhir.r4.model.Observation.ObservationComponentComponent;
 
 // added to access firebase
 import com.google.auth.oauth2.GoogleCredentials;
@@ -61,7 +65,7 @@ public class ObservationResourceProvider implements IResourceProvider {
    public ObservationResourceProvider(Firestore _db) {
       db = _db;
       Helper.retrieveUsers(db);
-      setDummyResp();
+      setDummyRespWithExtension();  
    }
 
    @Override
@@ -75,8 +79,7 @@ public class ObservationResourceProvider implements IResourceProvider {
 
    @Read()
    public Observation read(@IdParam IdType theId) {
-      searchForRespRate(db, theId);
-
+      searchForDocument(db, theId, "g_respiration");
       Observation retVal = myObservations.get(theId.getIdPart());
 
       if (retVal == null) {
@@ -89,8 +92,8 @@ public class ObservationResourceProvider implements IResourceProvider {
    private void setDummyRespWithExtension() {
       RespRate theResp = new RespRate();
       theResp.setPetName(new StringType("Fido"));
-      theResp.getImportantDates().add(new DateTimeType("2010-01-02"));
-      theResp.getImportantDates().add(new DateTimeType("2014-01-26T11:11:11"));
+      theResp.getRespMeasurements().add(new DateTimeType("2010-01-02"));
+      theResp.getRespMeasurements().add(new DateTimeType("2014-01-26T11:11:11"));
       theResp.setId("2");
       myObservations.put("2", theResp);
    }
@@ -107,27 +110,62 @@ public class ObservationResourceProvider implements IResourceProvider {
       myResp.setValue(new Quantity(null,26,"http://unitsofmeasure.org","/min","breaths/min"));
       myResp.setCode(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
     
-      // pathToStaticRespJSON = "/Users/jeanniehuang/Developer/garmin/Resources";
-      // // Instantiate a new parser
-      // IParser parser = ctx.newJsonParser();
-      // // Parse it
-      // RespRate parsed = parser.parseResource(RespRate.class, input);
-
       myObservations.put("1", myResp);
    }
 
-   private void searchForRespRate(Firestore db, @IdParam IdType theId) {
-      System.out.printf("Searching for RespRate with id %s \n", theId.getIdPart());
+
+   private void setRespRateResource(@IdParam IdType theId, List<QueryDocumentSnapshot> documents) {
+      QueryDocumentSnapshot document = documents.get(0);
+      System.out.println("Document data: " + document.getData());
+      String userId = document.getString("user_id");
+      String startTime = document.get("startTimeInSeconds").toString();
+      String localOffset = document.get("startTimeOffsetInSeconds").toString();
+      
+      HashMap <String, Double> measurements = (HashMap)document.get("timeOffsetEpochToBreaths");
+      
+      // existing issue: measurements isn't guaranteed to be in order, so this fetches a random entry
+      Map.Entry<String,Double> entry = measurements.entrySet().iterator().next();
+      String firstKey = entry.getKey();
+      Double firstValue = entry.getValue();
+      System.out.println("Time offset: " + firstKey);
+      System.out.println("Resp value: " + firstValue);
+
+      Long unixTimeStamp = Long.parseLong(startTime) + Long.parseLong(localOffset) + Long.parseLong(firstKey);
+     
+      RespRate myResp = new RespRate();
+      Reference patientReference = new Reference("Patient/" + userId);
+      myResp.setSubject(patientReference);
+      myResp.setId(theId.getIdPart());
+      Coding myCoding = new Coding("http://terminology.hl7.org/CodeSystem/observation-category", "vital-signs", "Vital Signs");
+      CodeableConcept myCodeConcept = new CodeableConcept(myCoding);
+      myResp.addCategory(myCodeConcept);
+      myResp.setEffective(new DateTimeType(Helper.formatDate(unixTimeStamp)));
+
+      ObservationComponentComponent obs1 = new ObservationComponentComponent​(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
+      obs1.setValue(new Quantity(null,firstValue,"http://unitsofmeasure.org","/min","breaths/min"));
+
+      // although we can have a list of component observations, unforunately they all correspond to the same time.
+      // so we need an alternate method for recording time series data.
+      List <ObservationComponentComponent> myList = new ArrayList<ObservationComponentComponent>();
+      myList.add(obs1);
+      myResp.setComponent(myList);
+
+      myObservations.put(theId.getIdPart(), myResp);
+   }
+
+   //tbd: search firebase for all documents in all collections 
+   private void searchForDocument(Firestore db, @IdParam IdType theId, String collName) {
+      System.out.printf("Searching for Observation with id %s \n", theId.getIdPart());
       try {
-         ApiFuture<QuerySnapshot> future = db.collection("g_respiration").whereEqualTo("summaryId", theId.getIdPart()).get();
+         ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theId.getIdPart()).get();
 			List<QueryDocumentSnapshot> documents = future.get().getDocuments();
-         System.out.println("Document size: ");
-         System.out.println(documents.size());
+         System.out.println("Number of matching documents: " + documents.size());
+         //System.out.println(documents.size());
          
          if (documents.size() < 1) {
             return;
          }
-         setRespRateResource(theId);
+         setRespRateResource(theId, documents);
 		}
 
       catch (Exception e) {
@@ -136,7 +174,5 @@ public class ObservationResourceProvider implements IResourceProvider {
       return;
    }
 
-   private void setRespRateResource(@IdParam IdType theId) {
-      
-   }
+
 }

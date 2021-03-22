@@ -15,7 +15,16 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.CollectionReference;
 
+// access java common operations
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.util.concurrent.ExecutionException;
+import java.io.*;
+import java.time.LocalDate;
 
 
 // A class of helper methods to be used by resource providers 
@@ -31,9 +40,9 @@ public class Helper {
            QuerySnapshot querySnapshot = query.get();
                List<QueryDocumentSnapshot> documents = querySnapshot.getDocuments();
                for (QueryDocumentSnapshot document : documents) {
-                   System.out.println("User: " + document.getId());
-                   System.out.println("Summary ID: " + document.getString("summaryId"));
-                   System.out.println("User ID: " + document.getString("user_id"));
+                //    System.out.println("User: " + document.getId());
+                //    System.out.println("Summary ID: " + document.getString("summaryId"));
+                //    System.out.println("User ID: " + document.getString("user_id"));
                }	
        }
        catch (Exception e){
@@ -41,5 +50,22 @@ public class Helper {
 
        }
        
+   }
+
+    // convert unix time to 
+    // An instant in time in the format YYYY-MM-DDThh:mm:ss.sss+zz:zz 
+    // (e.g. 2015-02-07T13:28:17.239+02:00 or 2017-01-01T00:00:00Z).
+
+   public static String formatDate(Long unixTimeStamp) {
+    // convert seconds to milliseconds
+    Date date = new java.util.Date(unixTimeStamp*1000L); 
+    // the format of your date
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"); // iso 8601
+    // give a timezone reference for formatting 
+    sdf.setTimeZone(java.util.TimeZone.getTimeZone("GMT-7")); 
+    String formattedDate = sdf.format(date);
+    System.out.println(formattedDate);
+    return formattedDate;
+
    }
 }

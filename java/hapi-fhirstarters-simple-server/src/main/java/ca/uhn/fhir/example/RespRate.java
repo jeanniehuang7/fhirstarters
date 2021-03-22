@@ -46,10 +46,10 @@ public class RespRate extends Observation {
     * 
     * Note also that this extension is a modifier extension
     */
-   @Child(name="importantDates", max=Child.MAX_UNLIMITED)   
-   @Extension(url="http://example.com/dontuse#importantDates", definedLocally=false, isModifier=true)
+   @Child(name="RespMeasurements", max=Child.MAX_UNLIMITED)   
+   @Extension(url="http://example.com/dontuse#RespMeasurements", definedLocally=false, isModifier=true)
    @Description(shortDefinition="Some dates of note for this Observation")
-   private List<DateTimeType> myImportantDates;
+   private List<DateTimeType> myRespMeasurements;
 
    /**
     * It is important to override the isEmpty() method, adding a check for any
@@ -57,7 +57,7 @@ public class RespRate extends Observation {
     */
    @Override
    public boolean isEmpty() {
-      return super.isEmpty() && ElementUtil.isEmpty(myPetName, myImportantDates);
+      return super.isEmpty() && ElementUtil.isEmpty(myPetName, myRespMeasurements);
    }
    
    /********
@@ -70,11 +70,11 @@ public class RespRate extends Observation {
     ********/
    
    /** Getter for important dates */
-   public List<DateTimeType> getImportantDates() {
-      if (myImportantDates==null) {
-         myImportantDates = new ArrayList<DateTimeType>();
+   public List<DateTimeType> getRespMeasurements() {
+      if (myRespMeasurements==null) {
+         myRespMeasurements = new ArrayList<DateTimeType>();
       }
-      return myImportantDates;
+      return myRespMeasurements;
    }
 
    /** Getter for pet name */
@@ -86,8 +86,8 @@ public class RespRate extends Observation {
    }
 
    /** Setter for important dates */
-   public void setImportantDates(List<DateTimeType> theImportantDates) {
-      myImportantDates = theImportantDates;
+   public void setRespMeasurements(List<DateTimeType> theRespMeasurements) {
+      myRespMeasurements = theRespMeasurements;
    }
 
    /** Setter for pet name */
