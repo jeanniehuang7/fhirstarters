@@ -82,13 +82,42 @@ public class ObservationResourceProvider implements IResourceProvider {
 
    @Read()
    public Observation read(@IdParam IdType theId) {
-      searchForDocument(db, theId);
+      QueryDocumentSnapshot document = Helper.searchForDocument(db, theId);
+      setResourceWrapper(document, theId);
+
       Observation retVal = myObservations.get(theId.getIdPart());
 
       if (retVal == null) {
          throw new ResourceNotFoundException(theId);
       }
       return retVal;
+   }
+
+   private void setResourceWrapper(QueryDocumentSnapshot document, @IdParam IdType theId) {
+      if (document == null) {
+         return;
+      }
+
+      String[] theIdParts = theId.getIdPart().split(":");
+      
+      if (theIdParts.length != 2) {
+         return;
+      }
+
+      String collName = theIdParts[0];
+      String theSummaryId = theIdParts[1];
+
+      switch (collName) {
+         case "g_respiration": 
+            setRespRateResource(theId, document);
+            break;
+         case "g_pulseOx":
+            setPulseOxResource(theId, document);
+            break;
+         case "g_stress":
+            setStressResource(theId, document);
+            break;
+      }
    }
 
    private void setDummyRespWithExtension() {
@@ -304,52 +333,4 @@ public class ObservationResourceProvider implements IResourceProvider {
        
       return myObs;
    }
-
-   private void searchForDocument(Firestore db, @IdParam IdType theId) {
-      System.out.printf("===========================================\nSearching for Observation with id %s \n", theId.getIdPart());
-      String[] theIdParts = theId.getIdPart().split(":");
-
-      if (theIdParts.length != 2) {
-         System.out.println("To return a non-dummy resource the input ID should be the form collectionName:summaryId");
-         return;
-      }
-
-      String collName = theIdParts[0];
-      String theSummaryId = theIdParts[1];
-
-      try {
-         ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theSummaryId).get();
-         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
-         System.out.println("Number of matching documents: " + documents.size());
-         
-         if (documents.size() >= 1) {
-            QueryDocumentSnapshot document = documents.get(0);
-            System.out.println("Document data: " + document.getData());
-
-            switch (collName) {
-               case "g_respiration": 
-                  setRespRateResource(theId, document);
-                  break;
-               case "g_pulseOx":
-                  setPulseOxResource(theId, document);
-                  break;
-               case "g_stress":
-                  setStressResource(theId, document);
-                  break;
-            }
-            
-            return;
-         }
-         System.out.println("No matching documents found");
-         
-      }
-
-      catch (Exception e) {
-         e.printStackTrace();
-      }     
-
-      return;
-   }
-
-
 }

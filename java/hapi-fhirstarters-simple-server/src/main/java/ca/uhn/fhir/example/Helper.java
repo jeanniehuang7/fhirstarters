@@ -15,6 +15,14 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.CollectionReference;
 
+// fhir
+import ca.uhn.fhir.rest.annotation.IdParam;
+import ca.uhn.fhir.rest.annotation.Read;
+import ca.uhn.fhir.rest.server.IResourceProvider;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+
 // access java common operations
 import java.util.HashMap;
 import java.util.List;
@@ -46,9 +54,9 @@ public class Helper {
            QuerySnapshot querySnapshot = query.get();
                List<QueryDocumentSnapshot> documents = querySnapshot.getDocuments();
                for (QueryDocumentSnapshot document : documents) {
-                //    System.out.println("User: " + document.getId());
-                //    System.out.println("Summary ID: " + document.getString("summaryId"));
-                //    System.out.println("User ID: " + document.getString("user_id"));
+                   System.out.println("User: " + document.getId());
+                   System.out.println("Summary ID: " + document.getString("summaryId"));
+                   System.out.println("User ID: " + document.getString("user_id"));
                }	
        }
        catch (Exception e){
@@ -98,30 +106,64 @@ public class Helper {
        sortedMap.put(entry.getKey(), entry.getValue());  
     }
     return sortedMap;  
-}
-
-public static HashMap<String, Double> sortMapByKeyStringToDouble(Map<String, Double> myMap)   {  
-    //convert HashMap into List   
-    List<Entry<String, Double>> list = new LinkedList<Entry<String, Double>>(myMap.entrySet());  
-    //sorting the list elements  
-    Collections.sort(list, new Comparator<Entry<String, Double>>()   {  
-       public int compare(Entry<String, Double> o1, Entry<String, Double> o2)   {  
-          //sort ascending, compare two object and return value
-          Long val1 = Long.parseLong(o1.getKey());
-          Long val2 = Long.parseLong(o2.getKey());
-          if (val2 > val1) {
-             return -1;
-          } else if (val1 > val2){
-             return 1;
-          }  else {
-             return 0;
-          }
-       }  
-    });
-    HashMap<String, Double> sortedMap = new LinkedHashMap<String, Double>();  
-    for (Entry<String, Double> entry : list)   {  
-       sortedMap.put(entry.getKey(), entry.getValue());  
     }
-    return sortedMap;  
-}
+
+    public static HashMap<String, Double> sortMapByKeyStringToDouble(Map<String, Double> myMap)   {  
+        //convert HashMap into List   
+        List<Entry<String, Double>> list = new LinkedList<Entry<String, Double>>(myMap.entrySet());  
+        //sorting the list elements  
+        Collections.sort(list, new Comparator<Entry<String, Double>>()   {  
+        public int compare(Entry<String, Double> o1, Entry<String, Double> o2)   {  
+            //sort ascending, compare two object and return value
+            Long val1 = Long.parseLong(o1.getKey());
+            Long val2 = Long.parseLong(o2.getKey());
+            if (val2 > val1) {
+                return -1;
+            } else if (val1 > val2){
+                return 1;
+            }  else {
+                return 0;
+            }
+        }  
+        });
+        HashMap<String, Double> sortedMap = new LinkedHashMap<String, Double>();  
+        for (Entry<String, Double> entry : list)   {  
+        sortedMap.put(entry.getKey(), entry.getValue());  
+        }
+        return sortedMap;  
+    }
+
+    public static QueryDocumentSnapshot searchForDocument(Firestore db, @IdParam IdType theId) {
+        String[] theIdParts = theId.getIdPart().split(":");
+      
+        if (theIdParts.length != 2) {
+            System.out.println("To return a non-dummy resource the input ID should be the form collectionName:summaryId");
+            return null;
+        }
+  
+        String collName = theIdParts[0];
+        String theSummaryId = theIdParts[1];
+        
+        System.out.print("===========================================\nSearching for Resource with id " + theSummaryId);
+        System.out.print(" in collection " + collName + "\n");
+        try {
+            ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theSummaryId).get();
+            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+            System.out.println("Number of matching documents: " + documents.size());
+            
+            if (documents.size() >= 1) {
+                QueryDocumentSnapshot document = documents.get(0);
+                System.out.println("Document data: " + document.getData());
+                return document;
+            }
+            
+            System.out.println("No matching documents found");
+        }
+
+        catch (Exception e) {
+            e.printStackTrace();
+        }     
+
+        return null;
+    }
 }

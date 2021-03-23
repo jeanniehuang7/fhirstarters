@@ -45,7 +45,7 @@ public class PatientResourceProvider implements IResourceProvider {
 
    public PatientResourceProvider(Firestore _db) {
       db = _db;
-      Helper.retrieveUsers(db);
+      //Helper.retrieveUsers(db);
    }
 
    @Override
@@ -61,8 +61,8 @@ public class PatientResourceProvider implements IResourceProvider {
    public Patient read(@IdParam IdType theId) {
       // for testing/development purposes
       // retrieve dummy user by sending a get request to http://localhost:8080/Patient/1 
-      setDummyUser(db, theId);
-      searchForPatient(db, theId); 
+      setDummyUser(theId);
+      searchForPatient(theId); 
 
       Patient retVal = myPatients.get(theId.getIdPart());
       
@@ -76,7 +76,7 @@ public class PatientResourceProvider implements IResourceProvider {
    // Search firebase documents for a user id like g1, g2, g3 ... 
    // Format it as a patient resource and set it in our Patient hashmap
 
-   private void searchForPatient(Firestore db, @IdParam IdType theId) {
+   private void searchForPatient(@IdParam IdType theId) {
       System.out.printf("Searching for patient with id %s \n", theId.getIdPart());
       
       try {
@@ -140,7 +140,7 @@ public class PatientResourceProvider implements IResourceProvider {
    }
 
    // the passed in theId must be server ID of 1 
-   private void setDummyUser(Firestore db, @IdParam IdType theId) {
+   private void setDummyUser(@IdParam IdType theId) {
       Patient pat1 = new Patient();
       pat1.setId("1"); // i think this is a logical identifier for the server?
       pat1.addIdentifier().setSystem("https://warriorwellness.me").setValue("some dummy business ID like g_999");
