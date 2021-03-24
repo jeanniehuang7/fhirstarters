@@ -110,48 +110,32 @@ public class ProcedureResourceProvider implements IResourceProvider {
     // total walking physical activity as a duration and frequency of days over the week). 
     // My best effort solution is to make a new code with Garmin. 
     // there are also a lot of other code systems at http://hl7.org/fhir/R4/terminologies-systems.html. 
+
+    // it's possible that activity types could live in observation rather than procedure.
     private void setMoveIqResource(QueryDocumentSnapshot document, @IdParam IdType theId) {
         Procedure myProcedure = new Procedure();
         myProcedure.setSubject(new Reference("Patient/" + document.getString("user_id")));
         myProcedure.setId(theId.getIdPart());
         myProcedure.setStatus(Procedure.ProcedureStatus.COMPLETED);
-        
+
         ActivityType a = new ActivityType(document.getString("activityType"));
-        myProcedure.setCode(a.getActivityCoding());
-        Period periodOfActivity = new Period();
+        CodeableConcept myCoding = a.getActivityCoding();
+        if (myCoding != null) {
+            myProcedure.setCode(myCoding);
+        }
+        
         if (document.get("activitySubType") != null) {
             List<Annotation> myNote=new ArrayList<Annotation>(){{
                 add(new Annotation(new MarkdownType​("Activity subtype: " + document.getString("activitySubType"))));
             }};
             myProcedure.setNote(myNote);
         }
+        Period periodOfActivity = Helper.formatPeriod(document, "durationInSeconds");
         
+        if (periodOfActivity != null) {
+            myProcedure.setPerformed(periodOfActivity);
+        }        
         
-        Object startTime = document.get("startTimeInSeconds");
-        Object localOffset = document.get("offsetInSeconds");
-        Object duration = document.get("durationInSeconds");
-
-        Long startTimeLong = 0L;
-        Long localOffsetLong = 0L;
-        Long durationLong = 0L;
-
-        if (startTime != null) {
-            startTimeLong = Long.parseLong(String.valueOf(startTime));
-        }
-        if (localOffset != null) {
-            localOffsetLong = Long.parseLong(String.valueOf(localOffset));
-        }
-        if (duration != null) {
-            durationLong = Long.parseLong(String.valueOf(duration));
-        }
-        
-        Long start = startTimeLong + localOffsetLong;
-        Long end = start + durationLong;
-
-        periodOfActivity.setStartElement(new DateTimeType(Helper.formatDate(start)));
-        periodOfActivity.setEndElement(new DateTimeType(Helper.formatDate(end)));
-
-        myProcedure.setPerformed(periodOfActivity);
         myProcedures.put(theId.getIdPart(), myProcedure);
 
     }

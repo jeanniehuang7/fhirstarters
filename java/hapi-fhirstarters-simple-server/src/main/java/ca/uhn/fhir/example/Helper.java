@@ -22,6 +22,8 @@ import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.DateTimeType;
 
 // access java common operations
 import java.util.HashMap;
@@ -146,6 +148,7 @@ public class Helper {
         
         System.out.print("===========================================\nSearching for Resource with id " + theSummaryId);
         System.out.print(" in collection " + collName + "\n");
+        
         try {
             ApiFuture<QuerySnapshot> future = db.collection(collName).whereEqualTo("summaryId", theSummaryId).get();
             List<QueryDocumentSnapshot> documents = future.get().getDocuments();
@@ -165,5 +168,35 @@ public class Helper {
         }     
 
         return null;
+    }
+
+    public static Period formatPeriod(QueryDocumentSnapshot document, String durationField) {
+        Period periodOfActivity = new Period();
+        
+        Object startTime = document.get("startTimeInSeconds");
+        Object localOffset = document.get("offsetInSeconds");
+        Object duration = document.get(durationField);
+
+        Long startTimeLong = 0L;
+        Long localOffsetLong = 0L;
+        Long durationLong = 0L;
+
+        if (startTime != null) {
+            startTimeLong = Long.parseLong(String.valueOf(startTime));
+        }
+        if (localOffset != null) {
+            localOffsetLong = Long.parseLong(String.valueOf(localOffset));
+        }
+        if (duration != null) {
+            durationLong = Long.parseLong(String.valueOf(duration));
+        }
+
+        Long start = startTimeLong + localOffsetLong;
+        Long end = start + durationLong;
+
+        periodOfActivity.setStartElement(new DateTimeType(formatDate(start)));
+        periodOfActivity.setEndElement(new DateTimeType(formatDate(end)));
+
+        return periodOfActivity;
     }
 }

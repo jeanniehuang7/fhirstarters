@@ -44,6 +44,10 @@ import org.hl7.fhir.r4.model.Observation.ObservationStatus;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.SampledData;
 import org.hl7.fhir.r4.model.Type;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Annotation;
+import org.hl7.fhir.r4.model.MarkdownType;
+import org.hl7.fhir.r4.model.Observation.ObservationReferenceRangeComponent;
 
 // added to access firebase
 import com.google.auth.oauth2.GoogleCredentials;
@@ -117,6 +121,9 @@ public class ObservationResourceProvider implements IResourceProvider {
          case "g_stress":
             setStressResource(theId, document);
             break;
+         case "g_epoch":
+            setEpochResource(theId, document);
+            break;
       }
    }
 
@@ -151,6 +158,160 @@ public class ObservationResourceProvider implements IResourceProvider {
       myObservations.put("1", myResp);
    }
 
+   private void setEpochResource(@IdParam IdType theId, QueryDocumentSnapshot document) { 
+      Observation myObs = new Observation();
+      myObs.setId(theId.getIdPart());
+      myObs.setStatus(ObservationStatus.FINAL);
+      myObs.setSubject(new Reference("Patient/" + document.getString("user_id")));
+      myObs.addCategory(new CodeableConcept(
+         new Coding("http://terminology.hl7.org/CodeSystem/observation-category","physical-activity","Physical Activity")
+      ));
+      myObs.setCode(new CodeableConcept (
+         new Coding("https://connect.garmin.com/", "epoch-summary-code","15 min Garmin wellness epochs")
+      ));
+      Period periodOfActivity = Helper.formatPeriod(document, "activeTimeInSeconds");
+      
+      if (periodOfActivity != null) {
+         myObs.setEffective(periodOfActivity);
+      }
+      
+      List<Observation.ObservationComponentComponent> theComponentList = 
+         new ArrayList<Observation.ObservationComponentComponent>(){};
+
+      if (document.get("activityType") != null) {
+         ActivityType a = new ActivityType(document.getString("activityType"));
+         CodeableConcept myCoding = a.getActivityCoding();
+         if (myCoding != null) {
+            theComponentList.add(new Observation.ObservationComponentComponent(myCoding));
+         }
+      }
+
+      if (document.get("intensity")!=null) {
+         String intensity = document.getString("intensity");
+         Coding intensityCoding = null;
+         switch(intensity.toLowerCase()) {
+            case "sedentary":
+            // link code text
+               intensityCoding = new Coding("https://connect.garmin.com/", "sedentary-intensity-code", "Wellness Monitoring Intensity is Sedentary");
+               break;
+            case "active":
+               intensityCoding = new Coding("https://connect.garmin.com/", "active-intensity-code", "Wellness Monitoring Intensity is Active");;
+               break;
+            case "highly_active":
+               intensityCoding = new Coding("https://connect.garmin.com/", "highly-active-intensity-code", "Wellness Monitoring Intensity is Highly-Active");
+               break;
+         }
+
+         if (intensityCoding != null) {
+            theComponentList.add(new Observation.ObservationComponentComponent(new CodeableConcept(intensityCoding)));
+         }
+      }
+      
+      Object stepsObj = document.get("steps");
+      if (stepsObj != null) {
+         Long numSteps = Long.parseLong(String.valueOf(stepsObj));
+         
+         Observation.ObservationComponentComponent stepsObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55423-8","Number of steps in unspecified time Pedometer")));
+           
+         stepsObservation.setValue(new Quantity(numSteps));
+         
+         theComponentList.add(stepsObservation);
+      }
+
+      Object distanceObj = document.get("distanceInMeters");
+
+      if (distanceObj != null) {
+         Long numSteps = document.getDouble("distanceInMeters").longValue();
+         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55430-3","Walking distance unspecified time Pedometer")));
+           
+         distanceObservation.setValue(new Quantity(null, numSteps, "http://unitsofmeasure.org", "m","meters"));       
+         theComponentList.add(distanceObservation);
+      }
+
+      Object intensityObj = document.get("intensity");
+
+      if (intensityObj != null) {
+         String intensity = document.getString("intensity");
+      }
+
+      Object activekiloCalObj = document.get("activeKilocalories");
+
+      if (activekiloCalObj != null) {
+         Long activeCalories = document.getDouble("activeKilocalories").longValue();
+         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","93819-1","Calories burned in unspecified time --during activity")));
+           
+         distanceObservation.setValue(new Quantity(null, activeCalories, "http://unitsofmeasure.org", "kcal","Kilocalories"));       
+         theComponentList.add(distanceObservation);
+      }
+
+      Object maxMotionIntensityObj = document.get("maxMotionIntensity");
+
+      if (maxMotionIntensityObj != null) {
+         Long maxMotionIntensity = document.getDouble("maxMotionIntensity").longValue();
+         Observation.ObservationComponentComponent maxMotionIntensityObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding( "https://connect.garmin.com/","max-motion-intensity-code",
+            "The largest motion intensity score of any minute in this monitoring period, where Garmin's motion intensity is a numerical abstraction of low-level accelerometer data")));
+         maxMotionIntensityObservation.setValue(new Quantity(maxMotionIntensity));
+         
+         Observation.ObservationReferenceRangeComponent myRange = new Observation.ObservationReferenceRangeComponent();
+
+         myRange.setHigh(new Quantity(null, 7L, "https://connect.garmin.com/", "ceiling-motion-intensity-code", "unitless"));
+         myRange.setLow(new Quantity(null, 0L, "https://connect.garmin.com/", "floor-motion-intensity-code", "unitless"));
+         maxMotionIntensityObservation.setReferenceRange(new ArrayList<Observation.ObservationReferenceRangeComponent>(){
+            {
+               add(myRange);
+            }
+         });    
+
+         theComponentList.add(maxMotionIntensityObservation);
+      }
+
+      Object meanMotionIntensityObj = document.get("meanMotionIntensity");
+
+      if (meanMotionIntensityObj != null) {
+         Long meanMotionIntensity = document.getDouble("meanMotionIntensity").longValue();
+         Observation.ObservationComponentComponent meanMotionIntensityObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding( "https://connect.garmin.com/","mean-motion-intensity-code",
+            "The average of motion intensity scores for all minutes in this monitoring period, where Garmin's motion intensity is a numerical abstraction of low-level accelerometer data")));
+         meanMotionIntensityObservation.setValue(new Quantity(meanMotionIntensity));
+
+         Observation.ObservationReferenceRangeComponent myRange = new Observation.ObservationReferenceRangeComponent();
+
+         myRange.setHigh(new Quantity(null, 7L, "https://connect.garmin.com/", "ceiling-motion-intensity-code", "unitless"));
+         myRange.setLow(new Quantity(null, 0L, "https://connect.garmin.com/", "floor-motion-intensity-code", "unitless"));
+         meanMotionIntensityObservation.setReferenceRange(new ArrayList<Observation.ObservationReferenceRangeComponent>(){
+            {
+               add(myRange);
+            }
+         });       
+         theComponentList.add(meanMotionIntensityObservation);
+      }
+
+      Object metObj = document.get("met");
+
+      List<Annotation> notes = new ArrayList<Annotation>(){{
+         add(new Annotation(new MarkdownType​(
+            "Total duration of the monitoring period is 900 seconds. Total active time, ie the portion of the monitoring period (in seconds) in which the device wearer was active for this activity type, is set under effectivePeriod. The sum of active times of all epochs of the same start time (and different activity types) should be equal to the duration.")));
+      }};
+
+      if (metObj != null) {
+         Long met = document.getDouble("met").longValue();
+         Observation.ObservationComponentComponent metObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","82264-3","MET by measured RMR panel")));
+           
+         metObservation.setValue(new Quantity(null, met, "http://unitsofmeasure.org", "kcal/min","kcal/min"));       
+         theComponentList.add(metObservation);
+         notes.add(new Annotation(new MarkdownType​("See https://www.cdc.gov/nccdphp/dnpa/physical/pdf/PA_Intensity_table_2_1.pdf for more information on MET")));
+      }
+
+      myObs.setNote(notes);
+      myObs.setComponent(theComponentList);
+      myObservations.put(theId.getIdPart(), myObs);
+      
+   }
 
    private void setRespRateResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
       Observation myObs = new Observation();
