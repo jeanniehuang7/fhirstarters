@@ -2,6 +2,7 @@
 package ca.uhn.fhir.example;
 import ca.uhn.fhir.example.Helper;
 import ca.uhn.fhir.example.RespRate;
+import ca.uhn.fhir.example.Mdc;
 
 // general fhir things
 import ca.uhn.fhir.rest.annotation.IdParam;
@@ -111,7 +112,7 @@ public class ObservationResourceProvider implements IResourceProvider {
       String collName = theIdParts[0];
       String theSummaryId = theIdParts[1];
 
-      switch (collName) {
+      switch (collName.toLowerCase()) {
          case "g_respiration": 
             setRespRateResource(theId, document);
             break;
@@ -124,6 +125,8 @@ public class ObservationResourceProvider implements IResourceProvider {
          case "g_epoch":
             setEpochResource(theId, document);
             break;
+         case "g_activity":
+            setActivityResource(theId, document);
       }
    }
 
@@ -158,6 +161,135 @@ public class ObservationResourceProvider implements IResourceProvider {
       myObservations.put("1", myResp);
    }
 
+   private void setActivityResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
+      Observation myObs = new Observation();
+      myObs.setId(theId.getIdPart());
+      myObs.setStatus(ObservationStatus.FINAL);
+      myObs.setSubject(new Reference("Patient/" + document.getString("user_id")));
+      myObs.addCategory(new CodeableConcept(
+         new Coding("http://terminology.hl7.org/CodeSystem/observation-category","physical-activity","Physical Activity")
+      ));
+      myObs.setCode(new CodeableConcept (
+         new Coding("https://connect.garmin.com/", "activity-summary-code","High-level fitness activity summaries")
+      ));
+
+      myObs.setDevice(new Reference("Device/1"));
+
+      Period periodOfActivity = Helper.formatPeriod(document, "durationInSeconds");
+      
+      if (periodOfActivity != null) {
+         myObs.setEffective(periodOfActivity);
+      }
+      
+      List<Observation.ObservationComponentComponent> theComponentList = 
+      new ArrayList<Observation.ObservationComponentComponent>(){};
+
+      theComponentList = setCommonActivityComponents(theComponentList, document);
+
+      if (document.get("startingLatitudeInDegree") != null) {
+         Double startingLat = document.getDouble("startingLatitudeInDegree");
+         Observation.ObservationComponentComponent latObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","91588-4","Latitude Event")));
+           
+         latObservation.setValue(new Quantity(startingLat));       
+         theComponentList.add(latObservation);
+      }
+
+      if (document.get("startingLongitudeInDegree") != null) {
+         Double startingLat = document.getDouble("startingLongitudeInDegree");
+         Observation.ObservationComponentComponent longObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","91589-2","Longitude Event")));
+           
+         longObservation.setValue(new Quantity(startingLat));       
+         theComponentList.add(longObservation);
+      }
+      myObs.setComponent(theComponentList);
+      myObservations.put(theId.getIdPart(), myObs);
+
+      if (document.get("averageHeartRateInBeatsPerMinute") != null) {
+         Long avgBPM = document.getLong("averageHeartRateInBeatsPerMinute");
+         Observation.ObservationComponentComponent avgBPMObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55425-3","Heart rate unspecified time mean by Pedometer")));
+         avgBPMObservation.setValue(new Quantity(null, avgBPM, "http://unitsofmeasure.org", "bpm","beats/min"));       
+         theComponentList.add(avgBPMObservation);
+      }
+
+      if (document.get("maxHeartRateInBeatsPerMinute") != null) {
+         Long maxBPM = document.getLong("maxHeartRateInBeatsPerMinute");
+         Observation.ObservationComponentComponent maxBPMObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55426-1","Heart rate unspecified time maximum by Pedometer")));
+         maxBPMObservation.setValue(new Quantity(null, maxBPM, "http://unitsofmeasure.org", "bpm","beats/min"));       
+         theComponentList.add(maxBPMObservation);
+      }
+
+      if (document.get("averageRunCadenceInStepsPerMinute") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_CAD");
+         Double averageCadence = document.getDouble("averageRunCadenceInStepsPerMinute");
+         Observation.ObservationComponentComponent avgCadenceObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"The cadence over a period of time (average cadence in this case)")));
+         avgCadenceObs.setValue(new Quantity(null, averageCadence, "http://unitsofmeasure.org", "steps/min","steps/min"));       
+         theComponentList.add(avgCadenceObs);
+      }
+
+      if (document.get("maxRunCadenceInStepsPerMinute") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_CAD");
+         Double maxCadence = document.getDouble("maxRunCadenceInStepsPerMinute");
+         Observation.ObservationComponentComponent maxCadenceObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"The cadence over a period of time (max cadence in this case)")));
+         maxCadenceObs.setValue(new Quantity(null, maxCadence, "http://unitsofmeasure.org", "steps/min","steps/min"));       
+         theComponentList.add(maxCadenceObs);
+      }
+
+
+      // unable to find pace codings in either MDC or LOINC systems - for recording average pace in min/km and max pace in min/km
+      // but i think this is a just a different way to represent the speed, so pace can be calculated from speed 
+
+      if (document.get("averageSpeedInMetersPerSecond") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_SPEED");
+         Double measurement = document.getDouble("averageSpeedInMetersPerSecond");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"The speed (average speed in this case)")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "m/s","meters/second"));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("maxSpeedInMetersPerSecond") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_SPEED");
+         Double measurement = document.getDouble("maxSpeedInMetersPerSecond");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"The speed (max speed in this case)")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "m/s","meters/second"));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("totalElevationGainInMeters") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_ALT_GAIN");
+         Double measurement = document.getDouble("totalElevationGainInMeters");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"Altitude gain")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "m","meters"));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("totalElevationLossInMeters") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_ALT_LOSS");
+         Double measurement = document.getDouble("totalElevationLossInMeters");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"Altitude loss")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "m","meters"));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("averagePaceInMinutesPerKilometer") != null) {
+         Long code = Mdc.get32BitCodeFromReferenceId("MDC_HF_ALT_LOSS");
+         Double measurement = document.getDouble("averagePaceInMinutesPerKilometer");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("urn:iso:std:iso:11073:10101",String.valueOf(code),"Altitude loss")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "m","meters"));       
+         theComponentList.add(measurementObs);
+      }
+
+   }
    private void setEpochResource(@IdParam IdType theId, QueryDocumentSnapshot document) { 
       Observation myObs = new Observation();
       myObs.setId(theId.getIdPart());
@@ -169,6 +301,7 @@ public class ObservationResourceProvider implements IResourceProvider {
       myObs.setCode(new CodeableConcept (
          new Coding("https://connect.garmin.com/", "epoch-summary-code","15 min Garmin wellness epochs")
       ));
+
       Period periodOfActivity = Helper.formatPeriod(document, "activeTimeInSeconds");
       
       if (periodOfActivity != null) {
@@ -178,13 +311,8 @@ public class ObservationResourceProvider implements IResourceProvider {
       List<Observation.ObservationComponentComponent> theComponentList = 
          new ArrayList<Observation.ObservationComponentComponent>(){};
 
-      if (document.get("activityType") != null) {
-         ActivityType a = new ActivityType(document.getString("activityType"));
-         CodeableConcept myCoding = a.getActivityCoding();
-         if (myCoding != null) {
-            theComponentList.add(new Observation.ObservationComponentComponent(myCoding));
-         }
-      }
+
+      theComponentList = setCommonActivityComponents(theComponentList, document);
 
       if (document.get("intensity")!=null) {
          String intensity = document.getString("intensity");
@@ -206,50 +334,8 @@ public class ObservationResourceProvider implements IResourceProvider {
             theComponentList.add(new Observation.ObservationComponentComponent(new CodeableConcept(intensityCoding)));
          }
       }
-      
-      Object stepsObj = document.get("steps");
-      if (stepsObj != null) {
-         Long numSteps = Long.parseLong(String.valueOf(stepsObj));
-         
-         Observation.ObservationComponentComponent stepsObservation = new Observation.ObservationComponentComponent(
-            new CodeableConcept(new Coding("http://loinc.org","55423-8","Number of steps in unspecified time Pedometer")));
-           
-         stepsObservation.setValue(new Quantity(numSteps));
-         
-         theComponentList.add(stepsObservation);
-      }
 
-      Object distanceObj = document.get("distanceInMeters");
-
-      if (distanceObj != null) {
-         Long numSteps = document.getDouble("distanceInMeters").longValue();
-         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
-            new CodeableConcept(new Coding("http://loinc.org","55430-3","Walking distance unspecified time Pedometer")));
-           
-         distanceObservation.setValue(new Quantity(null, numSteps, "http://unitsofmeasure.org", "m","meters"));       
-         theComponentList.add(distanceObservation);
-      }
-
-      Object intensityObj = document.get("intensity");
-
-      if (intensityObj != null) {
-         String intensity = document.getString("intensity");
-      }
-
-      Object activekiloCalObj = document.get("activeKilocalories");
-
-      if (activekiloCalObj != null) {
-         Long activeCalories = document.getDouble("activeKilocalories").longValue();
-         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
-            new CodeableConcept(new Coding("http://loinc.org","93819-1","Calories burned in unspecified time --during activity")));
-           
-         distanceObservation.setValue(new Quantity(null, activeCalories, "http://unitsofmeasure.org", "kcal","Kilocalories"));       
-         theComponentList.add(distanceObservation);
-      }
-
-      Object maxMotionIntensityObj = document.get("maxMotionIntensity");
-
-      if (maxMotionIntensityObj != null) {
+      if (document.get("maxMotionIntensity") != null) {
          Long maxMotionIntensity = document.getDouble("maxMotionIntensity").longValue();
          Observation.ObservationComponentComponent maxMotionIntensityObservation = new Observation.ObservationComponentComponent(
             new CodeableConcept(new Coding( "https://connect.garmin.com/","max-motion-intensity-code",
@@ -269,9 +355,7 @@ public class ObservationResourceProvider implements IResourceProvider {
          theComponentList.add(maxMotionIntensityObservation);
       }
 
-      Object meanMotionIntensityObj = document.get("meanMotionIntensity");
-
-      if (meanMotionIntensityObj != null) {
+      if (document.get("meanMotionIntensity") != null) {
          Long meanMotionIntensity = document.getDouble("meanMotionIntensity").longValue();
          Observation.ObservationComponentComponent meanMotionIntensityObservation = new Observation.ObservationComponentComponent(
             new CodeableConcept(new Coding( "https://connect.garmin.com/","mean-motion-intensity-code",
@@ -290,14 +374,12 @@ public class ObservationResourceProvider implements IResourceProvider {
          theComponentList.add(meanMotionIntensityObservation);
       }
 
-      Object metObj = document.get("met");
-
       List<Annotation> notes = new ArrayList<Annotation>(){{
          add(new Annotation(new MarkdownType​(
             "Total duration of the monitoring period is 900 seconds. Total active time, ie the portion of the monitoring period (in seconds) in which the device wearer was active for this activity type, is set under effectivePeriod. The sum of active times of all epochs of the same start time (and different activity types) should be equal to the duration.")));
       }};
 
-      if (metObj != null) {
+      if (document.get("met") != null) {
          Long met = document.getDouble("met").longValue();
          Observation.ObservationComponentComponent metObservation = new Observation.ObservationComponentComponent(
             new CodeableConcept(new Coding("http://loinc.org","82264-3","MET by measured RMR panel")));
@@ -311,6 +393,51 @@ public class ObservationResourceProvider implements IResourceProvider {
       myObs.setComponent(theComponentList);
       myObservations.put(theId.getIdPart(), myObs);
       
+   }
+
+   private List<Observation.ObservationComponentComponent> setCommonActivityComponents(List<Observation.ObservationComponentComponent> theComponentList, QueryDocumentSnapshot document) {
+      if (document.get("activityType") != null) {
+         ActivityType a = new ActivityType(document.getString("activityType"));
+         CodeableConcept myCoding = a.getActivityCoding();
+         if (myCoding != null) {
+            theComponentList.add(new Observation.ObservationComponentComponent(myCoding));
+         }
+      }
+
+      if (document.get("activeKilocalories") != null) {
+         Double activeCalories = document.getDouble("activeKilocalories");
+         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","93819-1","Calories burned in unspecified time --during activity")));
+           
+         distanceObservation.setValue(new Quantity(null, activeCalories, "http://unitsofmeasure.org", "kcal","Kilocalories"));       
+         theComponentList.add(distanceObservation);
+      }
+
+      // careful: using .longValue() will truncate decimal places
+      if (document.get("distanceInMeters") != null) {
+         Double numSteps = document.getDouble("distanceInMeters");
+         Observation.ObservationComponentComponent distanceObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55430-3","Walking distance unspecified time Pedometer")));
+           
+         distanceObservation.setValue(new Quantity(null, numSteps, "http://unitsofmeasure.org", "m","meters"));       
+         theComponentList.add(distanceObservation);
+      }
+
+      Object stepsObj = document.get("steps");
+      if (stepsObj != null) {
+         Long numSteps = Long.parseLong(String.valueOf(stepsObj));
+         
+         Observation.ObservationComponentComponent stepsObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("http://loinc.org","55423-8","Number of steps in unspecified time Pedometer")));
+           
+         stepsObservation.setValue(new Quantity(numSteps));
+         
+         theComponentList.add(stepsObservation);
+      }
+
+
+      return theComponentList;
+
    }
 
    private void setRespRateResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
@@ -494,4 +621,6 @@ public class ObservationResourceProvider implements IResourceProvider {
        
       return myObs;
    }
+
+
 }
