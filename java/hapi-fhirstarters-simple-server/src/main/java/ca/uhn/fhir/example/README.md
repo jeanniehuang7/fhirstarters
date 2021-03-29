@@ -4,25 +4,50 @@ E pluribus Enum
 # Running the HAPI Simple Server
 Visit instructions @ fhirstarters/java/hapi-fhirstarters-simple-server on how to compile and run this code using Maven.
 
+If you have added new dependencies, or if it is your first time running the code, also run ```mvn compile``` before Jetty. 
+
 # Description of files
 
-## SimpleRestfulServer.java
+## Server files
+
+#### SimpleRestfulServer.java
 E pluribus Enum
 
-## PatientResourceProvider.java
+#### Example_AuthorizationInterceptor.java
 E pluribus Enum
 
-## ObservationResourceProvider.java
+
+## Resource Providers
+#### PatientResourceProvider.java
 E pluribus Enum
 
-## RespRate.java
+#### ObservationResourceProvider.java
 E pluribus Enum
 
-## Helper.java
+#### DeviceResourceProvider.java
+E pluribus
+
+#### ProcedureResourceProvider.java
+E pluribus Enum
+
+#### RespRate.java
+
+## Activity files
+
+#### ActivityType.java
+
+#### ActivityEnum.java
+
+## Other files
+### Helper.java
 A file for helper functions
+### Mdc.java
+### Hints.java
 
-## Example_AuthorizationInterceptor.java
 E pluribus Enum
+
+
+
 
 # Information and resources
 + <a href="https://hapifhir.io/hapi-fhir/docs/server_plain/server_types.html">HAPI Plain FHIR Server</a> - I recommend reading through "Working with the FHIR Model" and "Plain Server"

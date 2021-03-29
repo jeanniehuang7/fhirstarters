@@ -19,11 +19,11 @@ public class ActivityType {
                 break;
             case "running":
                 this.activity=ActivityEnum.RUNNING;
-                activityCoding = new Coding("https://connect.garmin.com/", "running-activity-code","Running activity");
+                activityCoding = new Coding("urn:iso:std:iso:11073:10101", String.valueOf(Mdc.get32BitCodeFromReferenceId("MDC_HF_ACT_RUN")),"Running activity");
                 break;
             case "cycling":
                 this.activity=ActivityEnum.CYCLING;
-                activityCoding = new Coding("https://connect.garmin.com/", "cycling-activity-code","Cycling activity");
+                activityCoding = new Coding("urn:iso:std:iso:11073:10101", String.valueOf(Mdc.get32BitCodeFromReferenceId("MDC_HF_ACT_BIKE")),"Biking activity");
                 break;
             case "sedentary":
                 this.activity=ActivityEnum.SEDENTARY;
@@ -33,9 +33,9 @@ public class ActivityType {
                 this.activity=ActivityEnum.FITNESS_EQUIPMENT;
                 activityCoding = new Coding("https://connect.garmin.com/", "fitness-equipment-activity-code","Fitness Equipment activity");
                 break;
-            case "swimming":
+            case "swimming": // MDC_HF_ACT_SWIM
                 this.activity=ActivityEnum.SWIMMING;
-                activityCoding = new Coding("https://connect.garmin.com/", "swimming-activity-code","Swimming activity");
+                activityCoding = new Coding("urn:iso:std:iso:11073:10101", "8455165","Swimming activity");
                 break;
         }  
     }

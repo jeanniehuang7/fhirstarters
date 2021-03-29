@@ -157,6 +157,7 @@ public class Helper {
             if (documents.size() >= 1) {
                 QueryDocumentSnapshot document = documents.get(0);
                 System.out.println("Document data: " + document.getData());
+                //System.out.println("Document data: \n" + new JSONObjectdocument.getData() 
                 return document;
             }
             
