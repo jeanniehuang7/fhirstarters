@@ -131,6 +131,12 @@ public class ObservationResourceProvider implements IResourceProvider {
          case "g_daily":
             setDailyResource(theId, document);
             break;
+         case "g_activitydetail":
+            setActivityDetailResource(theId, document);
+            break;
+         case "g_sleep":
+            setSleepResource(theId, document);
+            break;
       }
    }
 
@@ -163,6 +169,41 @@ public class ObservationResourceProvider implements IResourceProvider {
       myResp.setCode(new CodeableConcept(new Coding("http://loinc.org","9279-1","Respiratory rate")));
       
       myObservations.put("1", myResp);
+   }
+
+   private void setActivityDetailResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
+      Observation myObs = new Observation();
+      myObs.setId(theId.getIdPart());
+      myObs.setStatus(ObservationStatus.FINAL);
+      myObs.setSubject(new Reference("Patient/" + document.getString("user_id")));
+      myObs.addCategory(new CodeableConcept(
+         new Coding("http://terminology.hl7.org/CodeSystem/observation-category","physical-activity","Physical Activity")
+      ));
+      myObs.setCode(new CodeableConcept (
+         new Coding("https://connect.garmin.com/", "activity-details-summary-code","Detailed information about discrete fitness activities intentionally started by the user")
+      ));
+
+      // TODO: fill in the rest 
+
+      myObservations.put(theId.getIdPart(), myObs);
+
+   }
+
+   private void setSleepResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
+      Observation myObs = new Observation();
+      myObs.setId(theId.getIdPart());
+      myObs.setStatus(ObservationStatus.FINAL);
+      myObs.setSubject(new Reference("Patient/" + document.getString("user_id")));
+      myObs.addCategory(new CodeableConcept(
+         new Coding("http://terminology.hl7.org/CodeSystem/observation-category","physical-activity","Physical Activity")
+      ));
+      myObs.setCode(new CodeableConcept (
+         new Coding("https://connect.garmin.com/", "sleep-summary-code","Data records representing how long the user slept and the automatically classified sleep levels")
+      ));
+
+      // TODO: fill in the rest
+
+      myObservations.put(theId.getIdPart(), myObs);
    }
 
    private void setDailyResource(@IdParam IdType theId, QueryDocumentSnapshot document) {
@@ -262,6 +303,141 @@ public class ObservationResourceProvider implements IResourceProvider {
          measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "kcal","Kilocalories"));       
          theComponentList.add(measurementObs);
       }
+      
+      // Below are many Garmin-unique metrics  
+
+      if (document.get("netKilocaloriesGoal") != null) {
+         Long measurement = document.getLong("netKilocaloriesGoal");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","net-Kilocalories-goal-code","The user’s goal for net caloric intake (consumed calories minus active calories) for this monitoring period.")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "kcal","Kilocalories"));       
+         theComponentList.add(measurementObs);
+      }
+      
+      if (document.get("floorsClimbed") != null) {
+         Long measurement = document.getLong("floorsClimbed");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","floors-climbed-code","Number of floors climbed during the monitoring period.")));
+         measurementObs.setValue(new Quantity(measurement));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("floorsClimbedGoal") != null) {
+         Long measurement = document.getLong("floorsClimbedGoal");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","floors-climbed-goal-code","The user’s goal for floors climbed in this monitoring period.")));
+         measurementObs.setValue(new Quantity(measurement));       
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("stepsGoal") != null) {
+         Long numSteps = document.getLong("stepsGoal");
+         Observation.ObservationComponentComponent stepsObservation = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","steps-goal-code","The user’s steps goal for this monitoring period.")));
+         stepsObservation.setValue(new Quantity(numSteps));
+         theComponentList.add(stepsObservation);
+      }
+
+      if (document.get("moderateIntensityDurationInSeconds") != null) {
+         Long measurement = document.getLong("moderateIntensityDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","moderate-intensity-duration-code","Duration of activities of moderate intensity, lasting at least 600 seconds at a time. Moderate intensity is defined as activity with MET value range 3-6.")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("vigorousIntensityDurationInSeconds") != null) {
+         Long measurement = document.getLong("vigorousIntensityDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","vigorous-intensity-duration-code","Duration of activities of vigorous intensity, lasting at least 600 seconds at a time. Vigorous intensity is defined as activity with MET value > 6.")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("intensityDurationGoalInSeconds") != null) {
+         Long measurement = document.getLong("intensityDurationGoalInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","intensity-duration-goal-code","The user’s goal for consecutive seconds of moderate to vigorous intensity activity for this monitoring period.")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("averageStressLevel") != null) {
+         Long measurement = document.getLong("averageStressLevel");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","average-stress-code","An abstraction of the user’s average stress level in this monitoring period, measured from 1 to 100, or -1 if there is not enough data to calculate average stress. ")));
+         measurementObs.setValue(new Quantity(measurement));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("maxStressLevel") != null) {
+         Long measurement = document.getLong("maxStressLevel");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","max-stress-code","The highest stress level measurement taken during this monitoring period.")));
+         measurementObs.setValue(new Quantity(measurement));
+         theComponentList.add(measurementObs);
+      }
+
+
+      if (document.get("stressDurationInSeconds") != null) {
+         Long measurement = document.getLong("stressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","stress-duration-code","The number of seconds in this monitoring period where stress level measurements were in the stressful range (26-100).")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("restStressDurationInSeconds") != null) {
+         Long measurement = document.getLong("restStressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","rest-stress-duration-code","The number of seconds in this monitoring period where stress level measurements were in the restful range (1 to 25).")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("activityStressDurationInSeconds") != null) {
+         Long measurement = document.getLong("activityStressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","activity-stress-duration-code","The number of seconds in this monitoring period where the user was engaging in physical activity and so stress measurement was unreliable.")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("lowStressDurationInSeconds") != null) {
+         Long measurement = document.getLong("lowStressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","low-stress-duration-code","The portion of the user’s stress duration where the measured stress score was in the low range (26-50).")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("mediumStressDurationInSeconds") != null) {
+         Long measurement = document.getLong("mediumStressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","medium-stress-duration-code","The portion of the user’s stress duration where the measured stress score was in the medium range (51-75).")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+      
+      if (document.get("highStressDurationInSeconds") != null) {
+         Long measurement = document.getLong("highStressDurationInSeconds");
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent(
+            new CodeableConcept(new Coding("https://connect.garmin.com/","high-stress-duration-code","The portion of the user’s stress duration where the measured stress score was in the high range (76-100).")));
+         measurementObs.setValue(new Quantity(null, measurement, "http://unitsofmeasure.org", "sec","seconds"));
+         theComponentList.add(measurementObs);
+      }
+
+      if (document.get("stressQualifier") != null) {
+         String measurement = document.getString("stressQualifier");
+         CodeableConcept stressQualifierCode = new CodeableConcept(new Coding("https://connect.garmin.com/","stress-qualifier-code","A qualitative label applied based on all stress measurements in this monitoring period. Possible values: unknown, calm, balanced, stressful, very_stressful, calm_awake, balanced_awake, stressful_awake, very_stressful_awake."));
+         stressQualifierCode.setText(measurement);
+         Observation.ObservationComponentComponent measurementObs = new Observation.ObservationComponentComponent();
+         measurementObs.setInterpretation(new ArrayList<CodeableConcept>(){{
+            add(stressQualifierCode);
+         }});
+         theComponentList.add(measurementObs);
+      }
+
 
       myObs.setComponent(theComponentList);
       myObservations.put(theId.getIdPart(), myObs);
@@ -280,7 +456,6 @@ public class ObservationResourceProvider implements IResourceProvider {
          new Coding("https://connect.garmin.com/", "activity-summary-code","High-level fitness activity summaries")
       ));
 
-      
 
       myObs.setDevice(new Reference("Device/1"));
 
@@ -518,9 +693,8 @@ public class ObservationResourceProvider implements IResourceProvider {
          theComponentList.add(distanceObservation);
       }
 
-      Object stepsObj = document.get("steps");
-      if (stepsObj != null) {
-         Long numSteps = Long.parseLong(String.valueOf(stepsObj));
+      if (document.get("steps") != null) {
+         Long numSteps = document.getLong("steps");
          
          Observation.ObservationComponentComponent stepsObservation = new Observation.ObservationComponentComponent(
             new CodeableConcept(new Coding("http://loinc.org","55423-8","Number of steps in unspecified time Pedometer")));
